@@ -2,7 +2,7 @@ const hero = require('./hero');
 const {
     sendHeroNotification,
     getCurrentHero,
-    isDateInCurrentWeek_,
+    isDateInCurrentPeriod_,
     buildMessage,
     sendNotification_
 } = hero;
@@ -101,18 +101,39 @@ describe('getCurrentHero', () => {
     });
 });
 
-describe('isDateInCurrentWeek_', () => {
+describe('isDateInCurrentPeriod_', () => {
     it('returns false if date is before the range of this week', () => {
-        expect(isDateInCurrentWeek_('6/3/2024')).toBe(false);
+        expect(isDateInCurrentPeriod_({ date: '6/3/2024'})).toBe(false);
     });
 
-    it('returns false if date is after the range of this week', () => {
-        expect(isDateInCurrentWeek_(new Date() + 8)).toBe(false);
+    it('returns false if date is outside the range of this week', () => {
+        const date = new Date();
+        date.setDate(date.getDate() + 8);
+
+        expect(isDateInCurrentPeriod_({ date })).toBe(false);
     });
 
     it('returns true if date is within the range of this week', () => {
-        expect(isDateInCurrentWeek_(new Date)).toBe(true);
+        expect(isDateInCurrentPeriod_({ date: new Date })).toBe(true);
     });
+
+    describe('when frequency is biweekly', () => {
+        const frequency = 'biweekly';
+
+        it('returns true if date is within the range of two weeks', () => {
+            const date = new Date();
+            date.setDate(date.getDate() + 8);
+
+            expect(isDateInCurrentPeriod_({ date, frequency})).toBe(true);
+        });
+
+        it('returns false if date is outside the range of two weeks', () => {
+            const date = new Date();
+            date.setDate(date.getDate() + 14);
+
+            expect(isDateInCurrentPeriod_({ date, frequency})).toBe(false);
+        });
+    });    
 });
 
 describe('buildMessage', () => {

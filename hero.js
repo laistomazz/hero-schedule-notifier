@@ -8,14 +8,15 @@
  * @property {string} webhookUrl
  * @property {Function} [customHero]
  * @property {Function} [customMessage]
+ * @property {Function} [frequency] weekly, biweekly
  */
 
 /**
  * @param {sendHeroNotificationOptions} options
  */
-function sendHeroNotification({ webhookUrl, customHero, customMessage }) {
+function sendHeroNotification({ webhookUrl, customHero, customMessage, frequency } = {}) {
     const { optionsRange, responsibilities } = getSpreadsheetData();
-    const currentHero = customHero && typeof customHero === 'function' ? customHero() : getCurrentHero(optionsRange);
+    const currentHero = customHero && typeof customHero === 'function' ? customHero() : getCurrentHero(optionsRange, frequency);
     const message = customMessage && typeof customMessage === 'function' ? customMessage() : buildMessage({ heroName: currentHero, responsibilities });
 
     return sendNotification_({ webhookUrl, message });
@@ -41,9 +42,10 @@ function getSpreadsheetData() {
   
 /**
  * @param {spreadsheetData} list
+ * @param {string} frequency
  * @return {string}
  */
-function getCurrentHero(list) {
+function getCurrentHero(list, frequency) {
     if (!list) {
         throw new Error ('list is missing')
     }
@@ -53,18 +55,20 @@ function getCurrentHero(list) {
 
         const [ responsible, assignedWeekStartDate ] = item;
 
-        return isDateInCurrentWeek_(new Date(assignedWeekStartDate)) ? responsible : currentHero;
+        return isDateInCurrentPeriod_({ date: new Date(assignedWeekStartDate), frequency }) ? responsible : currentHero;
     }, '');
 }
 
-function isDateInCurrentWeek_(date) {
+function isDateInCurrentPeriod_({ date, frequency } = {}) {
     const today = new Date();
     const dayOfWeek = today.getDay();
     const firstDayOfWeek = new Date(today);
+    const isFrequencyBiweekly = frequency && frequency === 'biweekly'; 
+
     firstDayOfWeek.setDate(today.getDate() - dayOfWeek);
 
     const lastDayOfWeek = new Date(firstDayOfWeek);
-    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + (isFrequencyBiweekly ? 13 : 6));
 
     return date >= firstDayOfWeek && date <= lastDayOfWeek;
 }
@@ -145,7 +149,7 @@ module.exports = {
     sendHeroNotification,
     getSpreadsheetData,
     getCurrentHero,
-    isDateInCurrentWeek_,
+    isDateInCurrentPeriod_,
     buildMessage,
     sendNotification_
 };
