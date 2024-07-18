@@ -18,7 +18,6 @@ function sendHeroNotification({ webhookUrl, customHero, customMessage }) {
     const currentHero = customHero && typeof customHero === 'function' ? customHero() : getCurrentHero(optionsRange);
     const message = customMessage && typeof customMessage === 'function' ? customMessage() : buildMessage({ heroName: currentHero, responsibilities });
 
-    console.log(message);
     return sendNotification_({ webhookUrl, message });
 }
 
