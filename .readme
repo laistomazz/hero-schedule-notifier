@@ -1,0 +1,10 @@
+# Hero Schedule Notifier
+
+## Dependencies
+
+- Node
+- Execute `npm i`
+
+## To test
+
+`npm test`
