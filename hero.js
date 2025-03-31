@@ -14,12 +14,32 @@
 /**
  * @param {sendHeroNotificationOptions} options
  */
-function sendHeroNotification({ webhookUrl, customHero, customMessage, frequency } = {}) {
-    const { optionsRange, responsibilities } = getSpreadsheetData();
-    const currentHero = customHero && typeof customHero === 'function' ? customHero() : getCurrentHero(optionsRange, frequency);
-    const message = customMessage && typeof customMessage === 'function' ? customMessage() : buildMessage({ heroName: currentHero, responsibilities });
+function sendHeroNotification({
+  webhookUrl,
+  customHero,
+  customMessage,
+  frequency,
+} = {}) {
+  const { optionsRange, responsibilities } = getSpreadsheetData();
+  const currentHero =
+    customHero && typeof customHero === "function"
+      ? customHero()
+      : getCurrentHero(optionsRange, frequency);
 
-    return sendNotification_({ webhookUrl, message });
+  if (!currentHero) {
+    throw new Error(
+      customHero
+        ? "Your customHero implementation is not returning a valid string"
+        : "No one is currently assigned as a hero"
+    );
+  }
+
+  const message =
+    customMessage && typeof customMessage === "function"
+      ? customMessage()
+      : buildMessage({ heroName: currentHero, responsibilities });
+
+  return sendNotification_({ webhookUrl, message });
 }
 
 /**
@@ -35,42 +55,53 @@ function getSpreadsheetData() {
   const ss = SpreadsheetApp.getActive();
 
   return {
-    optionsRange: ss.getSheetByName('Schedule').getRange("A:B").getValues(),
-    responsibilities: ss.getSheetByName('Responsibilities').getRange("A:A").getValues().filter(String)
-  }
+    optionsRange: ss.getSheetByName("Schedule").getRange("A:B").getValues(),
+    responsibilities: ss
+      .getSheetByName("Responsibilities")
+      .getRange("A:A")
+      .getValues()
+      .filter(String),
+  };
 }
-  
+
 /**
  * @param {spreadsheetData} list
  * @param {string} frequency
  * @return {string}
  */
 function getCurrentHero(list, frequency) {
-    if (!list) {
-        throw new Error ('list is missing')
-    }
-    
-    return list.reduce((currentHero, item) => {
-        if (currentHero) return currentHero;
+  if (!list) {
+    throw new Error("list is missing");
+  }
 
-        const [ responsible, assignedWeekStartDate ] = item;
+  return list.reduce((currentHero, item) => {
+    if (currentHero) return currentHero;
 
-        return isDateInCurrentPeriod_({ date: new Date(assignedWeekStartDate), frequency }) ? responsible : currentHero;
-    }, '');
+    const [responsible, assignedWeekStartDate] = item;
+
+    return isDateInCurrentPeriod_({
+      date: new Date(assignedWeekStartDate),
+      frequency,
+    })
+      ? responsible
+      : currentHero;
+  }, "");
 }
 
 function isDateInCurrentPeriod_({ date, frequency } = {}) {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const firstDayOfWeek = new Date(today);
-    const isFrequencyBiweekly = frequency && frequency === 'biweekly'; 
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const firstDayOfWeek = new Date(today);
+  const isFrequencyBiweekly = frequency && frequency === "biweekly";
 
-    firstDayOfWeek.setDate(today.getDate() - dayOfWeek);
+  firstDayOfWeek.setDate(today.getDate() - dayOfWeek);
 
-    const lastDayOfWeek = new Date(firstDayOfWeek);
-    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + (isFrequencyBiweekly ? 13 : 6));
+  const lastDayOfWeek = new Date(firstDayOfWeek);
+  lastDayOfWeek.setDate(
+    firstDayOfWeek.getDate() + (isFrequencyBiweekly ? 13 : 6)
+  );
 
-    return date >= firstDayOfWeek && date <= lastDayOfWeek;
+  return date >= firstDayOfWeek && date <= lastDayOfWeek;
 }
 
 /**
@@ -83,73 +114,84 @@ function isDateInCurrentPeriod_({ date, frequency } = {}) {
  * @param {buildMessageOptions} options
  */
 function buildMessage({ heroName, responsibilities } = {}) {
-    if (!heroName) { throw new Error ('heroName is missing') };
+  if (!heroName) {
+    throw new Error("heroName is missing");
+  }
 
-    const blocks = [
-        {
-            "type": "section",
-            "text": {
-            "type": "mrkdwn",
-            "text": ":male_superhero: *Hero of the week* :female_superhero:"
-            }
-        },
-        {
-            "type": "divider"
-        },
-        {
-            "type": "section",
-            "text": {
-            "type": "mrkdwn",
-            "text": `The hero of this week is *${heroName}*`
-            }
-        }
-        ]
+  const blocks = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: ":male_superhero: *Hero of the week* :female_superhero:",
+      },
+    },
+    {
+      type: "divider",
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `The hero of this week is *${heroName}*`,
+      },
+    },
+  ];
 
-    if (responsibilities && responsibilities.length ) {
-        blocks.push({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": `Hey ${heroName}, your responsibilities during this week are: ${responsibilities.reduce((str, responsibility) => { return responsibility.length ? `${str} \n- ${responsibility}` : str}, '')}`
-            }
-        });
-    }
-
+  if (responsibilities && responsibilities.length) {
     blocks.push({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": `:date: Check the schedule <${SpreadsheetApp.getActiveSpreadsheet().getUrl()}|here>`
-        }
-      })
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `Hey ${heroName}, your responsibilities during this week are: ${responsibilities.reduce(
+          (str, responsibility) => {
+            return responsibility.length ? `${str} \n- ${responsibility}` : str;
+          },
+          ""
+        )}`,
+      },
+    });
+  }
 
-    return { blocks };
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `:date: Check the schedule <${SpreadsheetApp.getActiveSpreadsheet().getUrl()}|here>`,
+    },
+  });
+
+  return { blocks };
 }
 
 function sendNotification_({ webhookUrl, message } = {}) {
-    if (!webhookUrl) { throw new Error ('webhookUrl is missing')}
-    if (!message) { throw new Error ('message is missing')}
+  if (!webhookUrl) {
+    throw new Error("webhookUrl is missing");
+  }
+  if (!message) {
+    throw new Error("message is missing");
+  }
 
-    const options = {
-        "method": "post", 
-        "contentType": "application/json", 
-        "muteHttpExceptions": true, 
-        "payload": JSON.stringify(message) 
-    };
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    muteHttpExceptions: true,
+    payload: JSON.stringify(message),
+  };
 
-    try {
-        UrlFetchApp.fetch(webhookUrl, options);
-        return options;
-    } catch(e) {
-        Logger.log(e);
-    }
+  try {
+    UrlFetchApp.fetch(webhookUrl, options);
+    return options;
+  } catch (e) {
+    Logger.log(e);
+  }
 }
 
 module.exports = {
-    sendHeroNotification,
-    getSpreadsheetData,
-    getCurrentHero,
-    isDateInCurrentPeriod_,
-    buildMessage,
-    sendNotification_
+  sendHeroNotification,
+  getSpreadsheetData,
+  getCurrentHero,
+  isDateInCurrentPeriod_,
+  buildMessage,
+  sendNotification_,
 };
